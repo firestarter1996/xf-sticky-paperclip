@@ -1,0 +1,128 @@
+__id__ = "sticky_paperclip"
+__name__ = "Sticky Paperclip"
+__description__ = "Keeps the paperclip (attach files and photos) button in the message field while you type, so you can add a file after writing your text. The text stays clear of the button. Made by [firestarter1996](https://github.com/firestarter1996)."
+__author__ = "firestarter1996"
+__version__ = "1.0.0"
+__min_version__ = "12.5.1"
+
+# Nagram's attach menu in the input mode (on by default) hides the paperclip as soon as the field has
+# text: checkSendButton() calls checkAttachButton(true, ...), which sets the button GONE, and fades
+# it out together with the bot, silent and scheduled buttons next to it. The Java part (embedded
+# below) turns that hide call into stock's own "keep shown" path (same click, same icon, and the
+# field keeps its 50 dp right margin so the text never runs under the button) and takes the
+# paperclip out of the fade, while the row next to it still fades away as before. It acts only when
+# stock was about to hide the button: no polling, no redraws, nothing per keystroke beyond two cheap
+# hook calls. Logcat tag XFClip (errors only).
+
+import base64
+import zlib
+
+from java import jclass
+from base_plugin import BasePlugin
+from ui.settings import Header, Text
+
+ENTRY = "com.firestarter.xfclip.StickyClip"
+
+
+def _log(msg):
+    try:
+        jclass("android.util.Log").i("XFClip", str(msg))
+    except Exception:
+        pass
+
+
+class StickyPaperclipPlugin(BasePlugin):
+
+    def create_settings(self):
+        st = "not running"
+        try:
+            if self.core is not None:
+                st = str(self.core.getMethod("stats").invoke(None))
+        except Exception:
+            pass
+        return [Header(text="Sticky Paperclip"), Text(text="Status", subtext=st)]
+
+    def on_plugin_load(self):
+        self.core = None
+        try:
+            ctx = jclass("org.telegram.messenger.ApplicationLoader").applicationContext
+            with open(__file__, "r", encoding="utf-8") as fh:
+                text = fh.read()
+            block = text.rsplit("# __DEX_BEGIN__", 1)[1].split("# __DEX_END__", 1)[0]
+            payload = "".join(l.strip()[1:].strip() for l in block.splitlines() if l.strip().startswith("#"))
+            data = zlib.decompress(base64.b64decode(payload))
+            Loader = jclass("dalvik.system.InMemoryDexClassLoader")
+            self.loader = Loader(jclass("java.nio.ByteBuffer").wrap(data), ctx.getClassLoader())
+            self.core = self.loader.loadClass(ENTRY)
+            AU = jclass("org.telegram.messenger.AndroidUtilities")
+            from android_utils import R
+            self._r = R(lambda: _log("install %s: %s" % (__version__, self.core.getMethod("install", jclass("java.lang.ClassLoader")).invoke(None, ctx.getClassLoader()))))
+            AU.runOnUIThread(self._r)
+        except Exception as e:
+            self.core = None
+            _log("load: %s" % e)
+
+    def on_plugin_unload(self):
+        try:
+            if self.core is not None:
+                self.core.getMethod("uninstall").invoke(None)
+                _log("uninstalled")
+        except Exception as e:
+            _log("unload: %s" % e)
+        self.core = None
+
+# __DEX_BEGIN__
+# eNqNmQ1QXNd1x899+wWrhf3gYyVA8FiQjCUBC0gCBJa0QmDhrD5iEJGQG/nt7gOetLxddh8InEQmiWLJiV1Liu2oqdLYju02aZtx
+# UzX19GPappq0nklnMpl2mnaaadOxO07jmTatp5PJeCb934+FxZIcI/3eOffc++6979xzz327mzGX/fG+AXru+NjIm5+hi1vCifpn
+# G3f+Xd1bV372Yt2NK29vJcoT0fLU7gipv82w/TZJeycIuIi2Qf4lZB3kJz1EhyHbvURuyMMV0FFxG3JvmOg4eBicBNMgA7IgDz4H
+# roBnwHXwJfBl8BXwIngFfB18E9wCfwJ+AnyYHZ/hSbACngavgj8F/wbeA401RIeABa6CPwL/DH4BttQS7QHz4Ca4DX4K+APVgO3g
+# AJgC58Hj4Ivgm+AN8BZg9fAN6Aaj4Bg4CzLgHJgHC2ARrICL4LPgSfA0eA7cADfBC+Bl8NfgH8E74OfAHSUKgSbQAfaAfeBBMA3S
+# IAsc8Bi4BK6DV8Afgr8B/wB+BP4bsM1EFaAW7AC94CA4Dj4O5oADngDXwA3wIngVfAt8F/wQ/BT8H2BbMD+wBWwDXaAfHABHwGmQ
+# ATmwAh4Hl8HT4CXwDfAa+Db4C/AD8O+gtoEoBvaAfWAcTIBHwTmwCFbBM+A5cBN8Dfwu+GPwV+AN8APwI/AT8L/gF4A1wq8A4Ul+
+# Hs9ALT3B5RTlMQ8wDUJzQlNqAtgG1AxagA5aQQy08dgnuSe2g/tAB7gf7AA7wS7QBbpBHPSAXtAHdoM9YC/oB4NgP3gQPAQ+ApLg
+# qJovU/tyk9IvhYiCkNh+9BR0vnF94FnoVaod/wurZ3sB9hr1XL+j2rSoNiGl3wrJ9lz/M9VGL2vD9dtQqpUfvheS9lZ1b0n/e3Vv
+# rGwOXP8X1Sam2oSVD99U7bep9lXKp6R8cp/SDyj9HbQ/qHQ+h4TS3y3T3yvT3eF1nc/zkNIDYZnDuF4LfUTpell7Ps/R0vqW2eNh
+# uVYdam5HlM77H1c6b++nStpH3GdV9KKQXnpJyBb6mvCNTsNCdpApZIzmlLSUPKfkeSWzSs4raQvJ6HNCttNlIbfRV0Vs76JpIVvo
+# pojtBsyIy0Z6QMS2lB7sBI+Ip5LcTCdV2RCyhopCxmhVyFb6dSE1+qJq9xsiBn10QUgXfZ74fmP0iohH2U8Ap8Uptf+Whayn60o+
+# p+TzIgai9CXhp61iPtXYmV9Q8inisS/nGcSTnBXxKcshlKeUPCv8UCfOp7CqD+OOY0K20XHlvxPKbx8VspEeFjJEOSE30SeV/bNC
+# +unL6v7fVP2+IPZYHf2WyCFynC24Pib8HKNHxb7zirO0EXc4QkZoUcklsefkfa3QpAzQaSGrlKxW0k9fEXuoghaEbKOCkM10VUid
+# rgnZRM+K/VVJnxJ7S/a/De0nVTkjZIwuCllLn1F78IbYfzFaEdJHT5Lc8yTiRP4NgdeRIP+jUZaDpfeGsvq/RT1rWs8fd6sPNq3n
+# iHBZTuL1P0RdK7jYxN8x3CLvvRWU+fAMc9EZTaMzLkZ50Xk1WmiIOkbvBGUeXxDZO+Ca1F1k63tRx3WN+lyBDXURZscHyMWq1+bI
+# 8G/zWn8/C8rcd+/+amiyjWGHVMAegf3evbeIvuWVP8/Pg/L9KR+6f+0ZNNS8F5Tnw2Q8hB7G4MgWxJId2inOgwGcM5NIQQuhZlVu
+# pcm+EKUQTUcxVqRmIaRjHsg6rhjqGtgZyus9WAVb78NZZIf2iPk10Bgt6JtgKT27nJm+Nj9f6O7zC4Rkjl4QK+bH+eWijpYI8XEx
+# 6z4+t9YNM7j0K2ewScQXHzesRsH5HJIxF2G8ZybmWZpbo6pbCG0XcwiWnZM66vCqSmm0CKp7SN3D7eeUna8vL7eHpL9T6MfW++EB
+# P8bEulGQpbCH+Hrr2JMli6/M0oi7KtbKwhPhFGbKV36IdBbQWjS5dhr5tX/VNBbUgkzmRhc82oWxb4lc8Qn4aZaatDBt1VKuIO45
+# gBZ+96DbSw2+j1GzFvY1uJ+miGchvosmfQGUHoH/YjiLAm7L7aMG98fLyhUof7qs7Ed5pqxcifIzZeUAyr9WVsao6HO9vAnlxzG6
+# He+mBz3cUg1LilKeGkp5a6ld34lTLID6LlHf4EnDXgPv7kT+C3i5/WPegC/mCSKi6rEGC/oO5KOA29YfwPkbc4dg5zuP2zGmj9uL
+# FPO1iuiB10MJ7hF4u1eU9uAa8HG/VPkWxMnMo2090vKlSFNtmrX7fD4RLUy8D30eY70g8hejb6k40egPGH2VSxKMh+Q7oozjJ1Tv
+# j7IqMQucNFhLW9/NR5RjidN4YxymhJVEXPM+j8HOz2Fb78R9AYqEbX0QWljFMOdkSL6vxpCV8yH+lmBhntVr8a+v7c242Jvl+8It
+# 9kW7sPNn5eXTsH9DzEVG71WM2wJSTEbvNQqwFv5UIb7L/NqAxvdvSguI2uvE49hLkZoBbR5tPDya3QPuWeg8K2ANQwcxTsBdCB2C
+# 9HsGPKepEBrhNk+Lx036lI8GvP/zyxYPX7lKrH7A0+f5z1/aIRfuT2mbysapRCzgxAzxmUe2tZ3cQW1776eIL1LxEZ+3YiHup1Zv
+# QDuqeSpScCevq/PRgffVuWzdi+iq92TIjvto0hvTqil/sIau19rI2+14cjwbsvM1zL0CI9kh/u4ZYHYoAJ/VsdUDth4UkRQSV/5W
+# kEIk2/F9dJU9WllFrw3O4lot1pjPdTkkz9AmrORW9M/38EGeLxn3ChNerRZeYeI5ozSgvQsPdMADHf8l2+9HXTPPnKyZ7mMyfiKw
+# RUW+col3eJ4n29biNUaVR11irR/hKfKjuPx4Ge8t1bTKoLO64PIj9CSvusbLlx9YoaegbKVWbuPvFjuhvPI8C2N8RhduL1+Wf8//
+# +LZW9R0t/B1WgwD8Om/dC39XT2PwahrkfV1evnWO1QbfeOCyxVqDw1rtE9P7nx8eHp6mlxgNoSY5rfaRLs4VqbvEWVMpPi9p4vPU
+# ZmHT8R7cpOK/RdW14B2Wqc9jrAxd1TdCk/3vXNt3TI3BpVvJ+rX+SuN7xWcNaWsRbTpU2x0U1R1r3izqRctOm/qpMb3oGAXHzBDr
+# IHY/uXbsH6KK4XTWsi1nP3mHpdRgrUlMTiZGjpxNJk4fPzl5NpE8cSRBOMM9Y4nkxCixcXKNJ5PEHiKWJC05Dh4CSXIlcXEn1XU6
+# SZ1Jw84Uclam27CtecOxcnZ3Qmi5QntJSVpFx7TNwhA1fUDzIdr5AbWlPhIZI+/wrlo+oPGE6QxR7C4NjqfOmWlnfcTIWptFx8p2
+# J3OzQxTdaDtRyOXNgrMCr61VLFnmhe4pXIao7U5j6Y71YRrWGl2wMrOm0z0+b8yasoOt769LWrZpFJLGSm4RT7Etmc7Nd89YBVOu
+# bqF7eQZLmu+ecKz0+ZURqO09H65Z74dr1scf6lc2440yRnbJOg/32jlH+nfUTmdziMfZo6Yzl8sMUfNdGo3bWMeRrFEs8qe/s37C
+# mrUNZ7FgcsfdWT05V8hdwK17kxmzu5BLLXWXHLiczxXNTPepkbNy+CO53Pn2dfWEUTDmhxCyH+q+k/YcxBBt/1DNuWvv1U6IQwW+
+# ujyIzhlLRnfWsGe7D+VyWdOwhyhcZlSOucM0jMB8nymZMzJ8K9SVVYwup80899PGocZtx5w1RcSvG+Vu2GibcApYviHacoft0KKV
+# FcOVVxXMmSz66B6zzGyGr9edVUfN+ZRZuFedDBP1BGLDJQoFY4Vv93uYh6m2zDyO6JSbzDcxkkiOnj1FwfUo7eINyTWZeJDck6dP
+# ILVNkTY1BpDTppDPppJj/IJ0NsWTmjY1Td5TY/xWYtOkIcNp05BnxmjrmQ/MXZEzd65hzZm7ONtvpNNmsdgej8fX9J4yvXeD3rum
+# 98G+SepjWWO2SC4jk4ElkymlRgobM/AGD0czIz1LPiNbMI3MChQxVZO8Rj5v2hlyGwV0UmE4jpGe24fPBVI7tOg4ORtdlZUS2fyc
+# UWogExNFUuZMrmBuGCyQkgE9ZWQXMVDawLmUpXB6zkyfT5T3HhSmCUxDGTxp3FcgfzpnLyF1Itqo1sxYjsgkxSKSpXQfec1CIVfA
+# bGdkh3JqVTMbui8V1VQrZkZlV+SfGS9OYLkss0ihGVkteuApmypnHl60bbTrJc8Mj2fy4RGPGfMmuZCYyY+L2rIUgT4yhw2RKMUC
+# eoTtsJnOGgUzI/YDhcssykeVMJWpk1gFdF2Fy5RVtFJW1nKwWHNG8Zi5jCF5Diot5ZzwtU4+y0ZazmbJa9lLMMFQHJ3P476gVRw/
+# PjFu5xedCWcla1KlheeVLwVClY9eYalNQ+7zppknL78iBFDKO1TDr7ozZ+p5A+cYz/s6eefHedfktrk73DafnC83M5bNGQ6FESIl
+# N4zIRa8uM40i2uK5wmyXY2bNWeTgrkWrayQ3n8/Zpu0Uu0bmDCeRdqwlPPoo8lSBH4wUyGeNlckcHDPHQ7sgl2at015yFbnjcEmI
+# TWGl8LwVvChCYhO0w4sF0VaY5VQroU2kjax5al09LXopc7+7aD1mkkecfUI4RfIWRVIhvzNnFVUwVjg5mRrJuyhOC/JJWaTKRbu0
+# Sv4lI9ueVaHI9Xkc8OTh2pIQ2CvsAj7OXbx4eOATsZSRPo+NEdsXy5jLsV0xnMR5Kyueo3M+lzFRUYAfjaKJSsRJp9hLxcX5Ymzf
+# jJEtmrtiGKDTyFuxfb39u2LFOaOzBzcZ/UamZ8Doj+/eG0/1Dw5m4rsHes3dg/3pnvig0b8nNdM/M9iT4b1iCxYxHG4a6OqJdw12
+# Zsyl2KdIi7CXWUO7VqNNuOkKa5blNq0Ooolt3qrVcsUbZdHOqCvaG9Wiu6XJFR2IdkS95GIau6rL/zWrq+7b4Vr2dpix1yN4pWX1
+# sDxbE2W/h0+9TNuM0q3aLex7tYzdqgvgNdjdwPx3+dfQeGXV/Voj+/Sq+/uN7Ir+bgMu36/D5R1+uVSPy9uNzP9UI3tyteJGlPlX
+# m1jl6+jsZj23vNnMomPqHftVfHD5/Uapf1vp/F37z5Xtu41S57Z/grzURBv+rr6vXHrPL30nyb/Pea1J/l5zs0n+FsEl/73h5Sb5
+# WwMvb1cyXNZHSZZ+89TKfvd00fpvn25a//2Tj1v6DdRL67+DMl224b+FunQ5Dv/ekoWknf92o+lyLP5bqVuX93P/8A81vB/+vapH
+# l3Pi33+61Hdd3CdeXc6Jf//Kv1hl6vfa/wehyVLo
+# __DEX_END__
