@@ -13,13 +13,18 @@ Nagram's attach menu in the input option (on by default) hides the paperclip as 
 ## What the plugin does
 
 * It turns that hide call into the app's own "keep shown" path, so the button keeps its normal tap, its icon and its spot.
-* The message field keeps room for the button, so long text wraps before it and never runs under it. The emoji and send buttons stay where they are.
+* The message field keeps room for the button, so long text wraps before it and never runs under it. The room is measured from the paperclip itself and set again every time the app works out the field's width (switching topics, scheduled messages loading, the keyboard opening or closing, turning the phone). The emoji and send buttons stay where they are.
 * The paperclip is taken out of the fade animation; the bot, silent and scheduled buttons next to it still fade away while you type, as before.
 * Tapping it opens the attach sheet with your text kept, like a normal tap.
 
+## Changes
+
+* 1.0.1: typed text could slide under the paperclip after a topic switch. The app recalculates the message field's width whenever it checks for scheduled messages, and that check only looked at the bot, silent and scheduled buttons, which are faded out while you type, so it gave the field almost no room on the right. The plugin now gives the room back right after each of those checks, using the paperclip's real width, and never lets the field shrink below a usable size.
+* 1.0.0: first release.
+
 ## Performance
 
-It only acts at the moment the app was about to hide the button. Nothing is polled or redrawn, and nothing runs per keystroke beyond two very cheap hook calls (the hooks run in Java, not Python). Logcat tag `XFClip`, errors only.
+It only acts at the moment the app was about to hide the button or recalculate the field's width. Nothing is polled or redrawn, and nothing runs per keystroke beyond two very cheap hook calls (the hooks run in Java, not Python). The field's width is only written when it actually changes. Logcat tag `XFClip`, errors only.
 
 ## Measured
 
@@ -27,6 +32,8 @@ Pixel 6 Pro, Nagram XF 12.10.1 plugin build, a busy forum topic with the Page Up
 
 * Main thread CPU: 30 to 36 ticks without the plugin, 28 with it
 * Slowest frames: 90th percentile 40 to 42 ms without, 27 to 28 ms with; 99th percentile 53 to 69 ms without, 32 to 34 ms with
+
+1.0.1, same phone, a quieter topic, same three rounds: main thread CPU 32 ticks, no janky frames, 90th percentile 13 ms, 99th percentile 16 ms.
 
 ## Install
 
